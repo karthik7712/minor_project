@@ -126,7 +126,7 @@ def gcd_threshold_segmentation(image_path):
 
 
 if __name__ == "__main__":
-    image_list = ["apples.jpg","BT_orig.png","logo.png"]
+    image_list = ["apples.jpg","BT_orig.png","logo.png","phone (5).jpg"]
 
     for x in image_list:
         image_path = f"images/{x}"
