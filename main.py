@@ -7,10 +7,35 @@ frequencies = {}
 gcd_values = set()
 thresholds = {}
 
-def gcd(a, b):
-    while b:
-        a, b = b, a % b
-    return a
+def divide(image_path, type):
+    image = cv2.imread(image_path)
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    height, width = gray_image.shape[:2]
+    half_height = height // 2
+    half_width = width // 2
+
+    part1 = np.array(gray_image[:half_height, :half_width])
+    part2 = np.array(gray_image[:half_height, half_width:])
+    part3 = np.array(gray_image[half_height:, :half_width])
+    part4 = np.array(gray_image[half_height:, half_width:])
+
+    thres1 = np.mean(list(get_gcds(part1.flatten())))
+    thres2 = np.mean(list(get_gcds(part2.flatten())))
+    thres3 = np.mean(list(get_gcds(part3.flatten())))
+    thres4 = np.mean(list(get_gcds(part4.flatten())))
+
+    im1_segment = segmentation(gray_image, type, thres1)
+    im2_segment = segmentation(gray_image, type, thres2)
+    im3_segment = segmentation(gray_image, type, thres3)
+    im4_segment = segmentation(gray_image, type, thres4)
+
+    cv2.imwrite(f'{type}_first_segmented_{image_path}', im1_segment)
+    cv2.imwrite(f'{type}_second_segmented_{image_path}', im2_segment)
+    cv2.imwrite(f'{type}_third_segmented_{image_path}', im3_segment)
+    cv2.imwrite(f'{type}_fourth_segmented_{image_path}', im4_segment)
+
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 
 def get_gcds(intensities):
@@ -39,7 +64,6 @@ def select_numbers_with_least_variation(numbers, k):
     return selected_numbers
 
 
-
 def find_gcd_vectorized(arr):
     gcd_vectorized = np.frompyfunc(math.gcd, 2, 1)
     return gcd_vectorized.reduce(arr, axis=0)
@@ -62,7 +86,7 @@ def find_filter1():
     vals = np.array(matrix)
     x = np.sum(vals)
     filter_3x3 = vals / x
-    print("The filter is :", filter_3x3)
+    print("The filter is :\n", filter_3x3)
     return filter_3x3
 
 
@@ -79,13 +103,15 @@ def smooth1(image_path,filter):
     filtered_image = np.clip(filtered_image, 0, 255)
 
     smoothed_image = Image.fromarray(filtered_image.astype(np.uint8))
-    smoothed_image.save(f"smoothed_1_{image_path}")
+    # cv2.imshow("Smoothed Image",smoothed_image)
+    smoothed_image.save(f"{image_path}")
 
 
 def find_filter2():
     global gcd_values
     top_gcd2 = select_numbers_with_least_variation(list(gcd_values),9)
     filter_matrix2 = np.array(top_gcd2).reshape(3, 3) / np.sum(top_gcd2)
+    print("The second filter is :\n",filter_matrix2)
     return filter_matrix2
 
 
@@ -104,7 +130,8 @@ def smooth2(image_path,filter):
     smoothed_image2 = np.clip(smoothed_image, 0, 255).astype(np.uint8)
 
     smoothed_image_2_pil = Image.fromarray(smoothed_image2)
-    smoothed_image_2_pil.save(f'Smoothed_2_{image_path}')
+    # cv2.imshow("Smoothed Image",smoothed_image_2_pil)
+    smoothed_image_2_pil.save(f'{image_path}')
 
 
 def gcd_threshold_segmentation(image_path):
@@ -122,16 +149,18 @@ def gcd_threshold_segmentation(image_path):
 
 
     #ALL PAIRS
+    global frequencies
     for i in range(len(unique_values)):
         for j in range(i + 1, len(unique_values)):
             x, y = unique_values[i], unique_values[j]
             gcd = math.gcd(x, y)
-            if gcd in frequencies:
-                frequencies[gcd] += 1
-            else:
-                frequencies[gcd] = 1
-            if gcd != 1:
+            if(gcd!=1):
+                if gcd in frequencies :
+                    frequencies[gcd] += 1
+                else:
+                    frequencies[gcd] = 1
                 gcd_values.add(gcd)
+    frequencies = dict(sorted(frequencies.items(), key=lambda item: item[1], reverse=True))
 
 
     #ITERATE HORIZONTALLY
@@ -208,10 +237,11 @@ def gcd_threshold_segmentation(image_path):
 
     return thresholds
 
-def segmentation(image_path,type,T):
-    gimage = cv2.imread(image_path,0)
+
+def segmentation(gimage,type,T):
+
     m, n = gimage.shape
-    img_thresh = np.zeros((m, n), dtype=int)
+    img_thresh = np.zeros((m, n), dtype=np.uint8)
 
     for i in range(m):
         for j in range(n):
@@ -219,23 +249,24 @@ def segmentation(image_path,type,T):
                 img_thresh[i, j] = 0;
             else:
                 img_thresh[i, j] = 255;
+    if type != "parted":
+        cv2.imwrite(f'{type}_segmented_{image_path}',img_thresh)
+    # segmented_image = cv2.cvtColor(img_thresh, cv2.COLOR_GRAY2BGR)
 
-    cv2.imwrite(f'{type}_segmented_{image_path}',img_thresh)
+    return img_thresh.astype(np.uint8)
 
 if __name__ == "__main__":
-    image_list = ["mark1.jpg"]
+    image_list = ["mark2.jpg","mark3.jpeg","mark4.jpeg"]
+    # image_list = ["BT_orig.png"]
 
     for x in image_list:
         image_path = f"images/{x}"
-
+        gimage = cv2.imread(image_path, 0)
         threshold_values = gcd_threshold_segmentation(image_path)
+        filter1 = find_filter1()
+        filter2 = find_filter2()
+        smooth1(image_path,filter1)
+        smooth2(image_path,filter2)
         for type,threshold_value in threshold_values.items():
-            segmentation(image_path,type,int(threshold_value))
-
-
-        #Divide image into 4 parts find gcds in each of the 4 areas and segment each part respectively and then add all images compare results
-
-        # filter1 = find_filter1()
-        # filter2 = find_filter2()
-        # smooth1(image_path,filter1)
-        # smooth2(image_path,filter2)
+            segmentation(gimage,type,int(threshold_value))
+        divide(image_path,"parted")
