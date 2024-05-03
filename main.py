@@ -7,6 +7,58 @@ frequencies = {}
 gcd_values = set()
 thresholds = {}
 
+import numpy as np
+from sklearn.metrics import jaccard_score, confusion_matrix, classification_report
+
+import cv2
+
+def convert_pgm_to_jpg(pgm_file_path, jpg_file_path):
+    """Convert a PGM image to JPG format using OpenCV."""
+    # Read the image in grayscale
+    image = cv2.imread(pgm_file_path, flags=0)
+    # Save the image in JPG format
+    cv2.imwrite(jpg_file_path, image)
+
+# Example usage
+for x in range(1,323):
+    if x < 10:
+        s = f'00{x}'
+    else:
+        if x<100:
+            s = f"0{x}"
+        else:
+            s = f'{x}'
+    pgm_path = f"./mias/mdb{s}.pgm"
+    jpg_path = f"images/mias{x}.jpg"
+    # print(x)
+    convert_pgm_to_jpg(pgm_path, jpg_path)
+
+
+def calculate_metrics(true_image, predicted_image):
+    if len(true_image.shape) == 3:
+        true_image = cv2.cvtColor(true_image, cv2.COLOR_BGR2GRAY)
+    if len(predicted_image.shape) == 3:
+        predicted_image = cv2.cvtColor(predicted_image, cv2.COLOR_BGR2GRAY)
+
+    true_image = cv2.resize(true_image, (predicted_image.shape[1], predicted_image.shape[0]))
+
+    _, true_image = cv2.threshold(true_image, 127, 1, cv2.THRESH_BINARY)
+    _, predicted_image = cv2.threshold(predicted_image, 127, 1, cv2.THRESH_BINARY)
+
+
+    true_image = true_image.flatten()
+    predicted_image = predicted_image.flatten()
+
+
+    iou = jaccard_score(true_image, predicted_image, average='binary')
+
+    report = classification_report(true_image, predicted_image, target_names=['background', 'object'])
+    # Compute confusion matrix
+    conf_matrix = confusion_matrix(true_image, predicted_image)
+
+    return iou, report, conf_matrix
+
+
 def divide(image_path, type):
     image = cv2.imread(image_path)
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -23,6 +75,9 @@ def divide(image_path, type):
     thres2 = np.mean(list(get_gcds(part2.flatten())))
     thres3 = np.mean(list(get_gcds(part3.flatten())))
     thres4 = np.mean(list(get_gcds(part4.flatten())))
+
+    # print("Four thresholds are: ",thres1," ",thres2," ",thres3," ",thres4)
+
 
     im1_segment = segmentation(gray_image, type, thres1)
     im2_segment = segmentation(gray_image, type, thres2)
@@ -48,7 +103,7 @@ def get_gcds(intensities):
         g = math.gcd(x, y)
         if g != 1:
             gcds.add(g)
-    print(np.mean(list(gcds)))
+    # print(np.mean(list(gcds)))
     return gcds
 
 def select_numbers_with_least_variation(numbers, k):
@@ -81,12 +136,11 @@ def find_filter1():
             break
 
     matrix = [top_gcd[i:i + 3] for i in range(0, len(top_gcd), 3)]
-    # print(matrix)
 
     vals = np.array(matrix)
     x = np.sum(vals)
     filter_3x3 = vals / x
-    print("The filter is :\n", filter_3x3)
+    # print("The filter is :\n", filter_3x3)
     return filter_3x3
 
 
@@ -103,15 +157,15 @@ def smooth1(image_path,filter):
     filtered_image = np.clip(filtered_image, 0, 255)
 
     smoothed_image = Image.fromarray(filtered_image.astype(np.uint8))
-    # cv2.imshow("Smoothed Image",smoothed_image)
-    smoothed_image.save(f"{image_path}")
+    smoothed_image.save(f"smoothed_1_{image_path}")
 
 
 def find_filter2():
     global gcd_values
     top_gcd2 = select_numbers_with_least_variation(list(gcd_values),9)
+    # print(top_gcd2)
     filter_matrix2 = np.array(top_gcd2).reshape(3, 3) / np.sum(top_gcd2)
-    print("The second filter is :\n",filter_matrix2)
+    # print("The second filter is :\n",filter_matrix2)
     return filter_matrix2
 
 
@@ -130,8 +184,7 @@ def smooth2(image_path,filter):
     smoothed_image2 = np.clip(smoothed_image, 0, 255).astype(np.uint8)
 
     smoothed_image_2_pil = Image.fromarray(smoothed_image2)
-    # cv2.imshow("Smoothed Image",smoothed_image_2_pil)
-    smoothed_image_2_pil.save(f'{image_path}')
+    smoothed_image_2_pil.save(f'smoothed_2_{image_path}')
 
 
 def gcd_threshold_segmentation(image_path):
@@ -147,7 +200,12 @@ def gcd_threshold_segmentation(image_path):
     top_row, bottom_row = 0, rows - 1
     left_col, right_col = 0, cols - 1
 
+    # print("Intensity Values:",unique_values)
 
+    thresholds["mean"] = np.mean(unique_values)
+    thresholds["median"] = np.median(unique_values)
+    # print("Mean of intensity values:",np.mean(unique_values))
+    # print("Median of intensity values:",np.median(unique_values))
     #ALL PAIRS
     global frequencies
     for i in range(len(unique_values)):
@@ -161,8 +219,8 @@ def gcd_threshold_segmentation(image_path):
                     frequencies[gcd] = 1
                 gcd_values.add(gcd)
     frequencies = dict(sorted(frequencies.items(), key=lambda item: item[1], reverse=True))
-
-
+    # print("Frequencies:",frequencies)
+    # print("GCDs",gcd_values)
     #ITERATE HORIZONTALLY
     for row in range(rows):
         for col in range(cols):
@@ -227,13 +285,11 @@ def gcd_threshold_segmentation(image_path):
 
     thresholds['allvalues'] = mean_allvals
     thresholds['horizontal'] = mean_horizontal
-    # thresholds['Horizontal_median'] = median_horizontal
     thresholds['vertical'] = mean_vertical
-    # thresholds['vertical_median'] = median_vertical
     thresholds['spiral'] = mean_spiral
-    # thresholds['spiral_median'] = median_spiral
     thresholds['diagonal'] = mean_diagonal
-    # thresholds['diagonal_median'] = median_diagonal
+
+    # print("Threshold values for different images:", thresholds)
 
     return thresholds
 
@@ -251,22 +307,51 @@ def segmentation(gimage,type,T):
                 img_thresh[i, j] = 255;
     if type != "parted":
         cv2.imwrite(f'{type}_segmented_{image_path}',img_thresh)
-    # segmented_image = cv2.cvtColor(img_thresh, cv2.COLOR_GRAY2BGR)
-
     return img_thresh.astype(np.uint8)
 
 if __name__ == "__main__":
-    image_list = ["mark2.jpg","mark3.jpeg","mark4.jpeg"]
-    # image_list = ["BT_orig.png"]
 
-    for x in image_list:
-        image_path = f"images/{x}"
-        gimage = cv2.imread(image_path, 0)
-        threshold_values = gcd_threshold_segmentation(image_path)
-        filter1 = find_filter1()
-        filter2 = find_filter2()
-        smooth1(image_path,filter1)
-        smooth2(image_path,filter2)
-        for type,threshold_value in threshold_values.items():
-            segmentation(gimage,type,int(threshold_value))
-        divide(image_path,"parted")
+    #PART 1
+    image_dict = {"mias":322}
+    for name,num in image_dict.items():
+        for x in range(1,num+1):
+            image_path = f"images/{name}{x}.jpg"
+            gimage = cv2.imread(image_path, 0)
+            threshold_values = gcd_threshold_segmentation(image_path)
+            filter1 = find_filter1()
+            filter2 = find_filter2()
+            smooth1(image_path,filter1)
+            smooth2(image_path,filter2)
+            for type,threshold_value in threshold_values.items():
+                segmentation(gimage,type,int(threshold_value))
+                # original = cv2.imread(f"./output_images/{x}.jpg",flags=0)
+                # result = cv2.imread(f"./{type}_segmented_images/{name}{x}.jpg")
+                # iou, report, conf_matrix = calculate_metrics(original, result)
+                # tp,fn,fp,tn=conf_matrix[0][0],conf_matrix[0][1],conf_matrix[1][0],conf_matrix[1][1]
+                # precision=(tp)/(tp+fp)
+                # recall=(tp)/(tp+fn)
+                # print(f"The Accuracy results for {type} Segmentation for {name}{x} image are:\niou: ",iou,"\nAccuracy :",(2*precision*recall)/(precision+recall),"\nConfusion Matrix:\n",conf_matrix)
+                divide(image_path,"parted")
+
+    ##PART 2
+    # image_dict = {"M":10}
+    # for name,num in image_dict.items():
+    #     for x in range(1,num+1):
+    #         image_path = f"images/{name}{x}.jpg"
+    #         gimage = cv2.imread(image_path, 0)
+    #         threshold_values = gcd_threshold_segmentation(image_path)
+    #         filter1 = find_filter1()
+    #         filter2 = find_filter2()
+    #         smooth1(image_path,filter1)
+    #         smooth2(image_path,filter2)
+    #         for type,threshold_value in threshold_values.items():
+    #             segmentation(gimage,type,int(threshold_value))
+    #             original = cv2.imread(f"./output_images/med{x}.jpg",flags=0)
+    #             result = cv2.imread(f"./{type}_segmented_images/{name}{x}.jpg")
+    #             iou, report, conf_matrix = calculate_metrics(original, result)
+    #             tp,fn,fp,tn=conf_matrix[0][0],conf_matrix[0][1],conf_matrix[1][0],conf_matrix[1][1]
+    #             precision=(tp)/(tp+fp)
+    #             recall=(tp)/(tp+fn)
+    #             print(f"The Accuracy results for {type} Segmentation for {name}{x} image are:\niou: ",iou,"\nAccuracy :",(2*precision*recall)/(precision+recall),"\nConfusion Matrix:\n",conf_matrix)
+    #             divide(image_path,"parted")
+    #
