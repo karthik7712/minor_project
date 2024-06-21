@@ -1,5 +1,3 @@
-import numpy as np
-import cv2
 import math
 from PIL import Image
 
@@ -312,29 +310,7 @@ def segmentation(gimage,type,T):
 if __name__ == "__main__":
 
     #PART 1
-    image_dict = {"mias":322}
-    for name,num in image_dict.items():
-        for x in range(1,num+1):
-            image_path = f"images/{name}{x}.jpg"
-            gimage = cv2.imread(image_path, 0)
-            threshold_values = gcd_threshold_segmentation(image_path)
-            filter1 = find_filter1()
-            filter2 = find_filter2()
-            smooth1(image_path,filter1)
-            smooth2(image_path,filter2)
-            for type,threshold_value in threshold_values.items():
-                segmentation(gimage,type,int(threshold_value))
-                # original = cv2.imread(f"./output_images/{x}.jpg",flags=0)
-                # result = cv2.imread(f"./{type}_segmented_images/{name}{x}.jpg")
-                # iou, report, conf_matrix = calculate_metrics(original, result)
-                # tp,fn,fp,tn=conf_matrix[0][0],conf_matrix[0][1],conf_matrix[1][0],conf_matrix[1][1]
-                # precision=(tp)/(tp+fp)
-                # recall=(tp)/(tp+fn)
-                # print(f"The Accuracy results for {type} Segmentation for {name}{x} image are:\niou: ",iou,"\nAccuracy :",(2*precision*recall)/(precision+recall),"\nConfusion Matrix:\n",conf_matrix)
-                divide(image_path,"parted")
-
-    ##PART 2
-    # image_dict = {"M":10}
+    # image_dict = {"mias":322}
     # for name,num in image_dict.items():
     #     for x in range(1,num+1):
     #         image_path = f"images/{name}{x}.jpg"
@@ -346,12 +322,34 @@ if __name__ == "__main__":
     #         smooth2(image_path,filter2)
     #         for type,threshold_value in threshold_values.items():
     #             segmentation(gimage,type,int(threshold_value))
-    #             original = cv2.imread(f"./output_images/med{x}.jpg",flags=0)
-    #             result = cv2.imread(f"./{type}_segmented_images/{name}{x}.jpg")
-    #             iou, report, conf_matrix = calculate_metrics(original, result)
-    #             tp,fn,fp,tn=conf_matrix[0][0],conf_matrix[0][1],conf_matrix[1][0],conf_matrix[1][1]
-    #             precision=(tp)/(tp+fp)
-    #             recall=(tp)/(tp+fn)
-    #             print(f"The Accuracy results for {type} Segmentation for {name}{x} image are:\niou: ",iou,"\nAccuracy :",(2*precision*recall)/(precision+recall),"\nConfusion Matrix:\n",conf_matrix)
+    #             # original = cv2.imread(f"./output_images/{x}.jpg",flags=0)
+    #             # result = cv2.imread(f"./{type}_segmented_images/{name}{x}.jpg")
+    #             # iou, report, conf_matrix = calculate_metrics(original, result)
+    #             # tp,fn,fp,tn=conf_matrix[0][0],conf_matrix[0][1],conf_matrix[1][0],conf_matrix[1][1]
+    #             # precision=(tp)/(tp+fp)
+    #             # recall=(tp)/(tp+fn)
+    #             # print(f"The Accuracy results for {type} Segmentation for {name}{x} image are:\niou: ",iou,"\nAccuracy :",(2*precision*recall)/(precision+recall),"\nConfusion Matrix:\n",conf_matrix)
     #             divide(image_path,"parted")
-    #
+
+    #PART 2
+    image_dict = {"M":10}
+    for name,num in image_dict.items():
+        for x in range(1,num+1):
+            image_path = f"images/{name}{x}.jpg"
+            gimage = cv2.imread(image_path, 0)
+            threshold_values = gcd_threshold_segmentation(image_path)
+            filter1 = find_filter1()
+            filter2 = find_filter2()
+            smooth1(image_path,filter1)
+            smooth2(image_path,filter2)
+            for type,threshold_value in threshold_values.items():
+                segmentation(gimage,type,int(threshold_value))
+                original = cv2.imread(f"./output_images/med{x}.jpg",flags=0)
+                result = cv2.imread(f"./{type}_segmented_images/{name}{x}.jpg")
+                iou, report, conf_matrix = calculate_metrics(original, result)
+                tp,fn,fp,tn=conf_matrix[0][0],conf_matrix[0][1],conf_matrix[1][0],conf_matrix[1][1]
+                precision=(tp)/(tp+fp)
+                recall=(tp)/(tp+fn)
+                print(f"The Accuracy results for {type} Segmentation for {name}{x} image are:\niou: ",iou,"\nAccuracy :",(2*precision*recall)/(precision+recall),"\nConfusion Matrix:\n",conf_matrix)
+                divide(image_path,"parted")
+
